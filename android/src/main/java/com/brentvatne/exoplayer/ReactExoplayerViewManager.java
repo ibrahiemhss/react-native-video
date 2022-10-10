@@ -104,6 +104,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     public @Nullable Map<String, Object> getExportedCustomDirectEventTypeConstants() {
         MapBuilder.Builder<String, Object> builder = MapBuilder.builder();
         for (String event : VideoEventEmitter.Events) {
+            Log.d(Consts.TAG, "** ReactExoplayerViewManager EventType "+event.toString());
             builder.put(event, MapBuilder.of("registrationName", event));
         }
         return builder.build();
