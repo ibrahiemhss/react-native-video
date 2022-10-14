@@ -12,11 +12,15 @@ enum RCTVideoSave {
         let asset:AVAsset! = playerItem?.asset
         
         guard asset != nil else {
+            print("================= RCTVideoSave  asset", "ERROR_ASSET_NIL")
+
             reject("ERROR_ASSET_NIL", "Asset is nil", nil)
             return
         }
         
         guard let exportSession = AVAssetExportSession(asset: asset, presetName:AVAssetExportPresetHighestQuality) else {
+            print("================= RCTVideoSave exportSession.status  exportSession", "Could not create export session")
+
             reject("ERROR_COULD_NOT_CREATE_EXPORT_SESSION", "Could not create export session", nil)
             return
         }
@@ -33,12 +37,28 @@ enum RCTVideoSave {
             
             switch (exportSession.status) {
             case .failed:
+                print("================= RCTVideoSave exportSession.status  failed", exportSession.error)
+
                 reject("ERROR_COULD_NOT_EXPORT_VIDEO", "Could not export video", exportSession.error)
                 break
             case .cancelled:
+                print("================= RCTVideoSave exportSession.status cancelled",exportSession.error)
+
                 reject("ERROR_EXPORT_SESSION_CANCELLED", "Export session was cancelled", exportSession.error)
                 break
+                
+            case .waiting:
+                print("================= RCTVideoSave exportSession.status =======","waiting")
+
+                break
+                
+            case .exporting:
+                print("================= RCTVideoSave exportSession.status ======","exporting")
+
+                break
             default:
+                print("================= RCTVideoSave exportSession.status default",exportSession.status)
+
                 resolve(["uri": url.absoluteString])
                 break
             }

@@ -9,12 +9,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _player:AVPlayer?
     private var _playerItem:AVPlayerItem?
     private var _source:VideoSource?
+    private var _sourcDictionary: NSDictionary?
     private var _playerBufferEmpty:Bool = true
     private var _playerLayer:AVPlayerLayer?
-    
     private var _playerViewController:RCTVideoPlayerViewController?
     private var _videoURL:NSURL?
     
+    fileprivate let seekDuration: Float64 = 5
+
     /* DRM */
     private var _drm:DRMParams?
     
@@ -27,7 +29,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _pendingSeek:Bool = false
     private var _pendingSeekTime:Float = 0.0
     private var _lastSeekTime:Float = 0.0
-    
+    private var _dataSourceSet:Bool = false
+
     /* For sending videoProgress events */
     private var _controls:Bool = false
     
@@ -42,6 +45,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _repeat:Bool = false
     private var _allowsExternalPlayback:Bool = true
     private var _textTracks:[TextTrack]?
+    private var _isLiveStream:Bool=false
+    private var _isSourdeDataSet:Bool=false
     private var _selectedTextTrackCriteria:SelectedTrackCriteria?
     private var _selectedAudioTrackCriteria:SelectedTrackCriteria?
     private var _playbackStalled:Bool = false
@@ -62,6 +67,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     private var _resouceLoaderDelegate: RCTResourceLoaderDelegate?
     private var _playerObserver: RCTPlayerObserver = RCTPlayerObserver()
+    
     
 #if canImport(RCTVideoCache)
     private let _videoCache:RCTVideoCachingHandler = RCTVideoCachingHandler()
@@ -99,7 +105,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         super.init(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         
         _eventDispatcher = eventDispatcher
-        
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(applicationWillResignActive(notification:)),
@@ -127,6 +132,23 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             name: AVAudioSession.routeChangeNotification,
             object: nil
         )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidEnterBackground(notification:)),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+       
+        NotificationCenter.default.addObserver(
+                  self,
+                  selector: #selector(handleAVPlayerAccess(notification:)),
+                  name: UIApplication.didEnterBackgroundNotification,
+                  object: nil
+              )
+        
+       
+        
         _playerObserver._handlers = self
 #if canImport(RCTVideoCache)
         _videoCache.playerItemPrepareText = playerItemPrepareText
@@ -142,9 +164,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         self.removePlayerLayer()
         _playerObserver.clearPlayer()
     }
-    
+       
     // MARK: - App lifecycle handlers
-    
+   
     @objc func applicationWillResignActive(notification:NSNotification!) {
         if _playInBackground || _playWhenInactive || _paused {return}
         
@@ -180,6 +202,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         }
     }
     
+
     // MARK: - Progress
     
     func sendProgressUpdate() {
@@ -218,6 +241,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     @objc
     func setSrc(_ source:NSDictionary!) {
+        _sourcDictionary=source
         _source = VideoSource(source)
         removePlayerLayer()
         _playerObserver.player = nil
@@ -231,7 +255,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 let assetResult = RCTVideoUtils.prepareAsset(source: source),
                 let asset = assetResult.asset,
                 let assetOptions = assetResult.assetOptions else {
-                      DebugLog("Could not find video URL in source '\(self._source)'")
+                    DebugLog("Could not find video URL in source ")
                       throw NSError(domain: "", code: 0, userInfo: nil)
                   }
                 
@@ -248,12 +272,17 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                         localSourceEncryptionKeyScheme: self._localSourceEncryptionKeyScheme,
                         onVideoError: self.onVideoError,
                         onGetLicense: self.onGetLicense,
-                        reactTag: self.reactTag
+                        reactTag: self.reactTag,
+                        isLiveStream:self._isLiveStream
                     )
                 }
                 return Promise{self.playerItemPrepareText(asset: asset, assetOptions:assetOptions)}
             }.then{[weak self] (playerItem:AVPlayerItem!) in
-                guard let self = self else {throw  NSError(domain: "", code: 0, userInfo: nil)}
+                guard let self = self else
+                {
+                    throw  NSError(domain: "", code: 0, userInfo: nil)
+                    
+                }
                 
                 self._player?.pause()
                 self._playerItem = playerItem
@@ -272,19 +301,28 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 if #available(iOS 10.0, *) {
                     self.setAutomaticallyWaitsToMinimizeStalling(self._automaticallyWaitsToMinimizeStalling)
                 }
+    
                 
                 //Perform on next run loop, otherwise onVideoLoadStart is nil
-                self.onVideoLoadStart?([
-                    "src": [
-                        "uri": self._source?.uri ?? NSNull(),
-                        "type": self._source?.type ?? NSNull(),
-                        "isNetwork": NSNumber(value: self._source?.isNetwork ?? false)
-                    ],
-                    "drm": self._drm?.json ?? NSNull(),
-                    "target": self.reactTag
-                ])
-            }.catch{_ in }
+        
+                    self.onVideoLoadStart?([
+                        "src": [
+                            "uri": self._source?.uri ?? NSNull(),
+                            "type": self._source?.type ?? NSNull(),
+                            "isNetwork": NSNumber(value: self._source?.isNetwork ?? false)
+                        ],
+                        "drm": self._drm?.json ?? NSNull(),
+                        "target": self.reactTag
+                    ])
+            
+        
+            }.catch{
+                _ in
+
+            }
         _videoLoadStarted = true
+        _isSourdeDataSet = true
+       
     }
     
     @objc
@@ -368,8 +406,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc
     func setIgnoreSilentSwitch(_ ignoreSilentSwitch:String?) {
         _ignoreSilentSwitch = ignoreSilentSwitch
-        RCTPlayerOperations.configureAudio(ignoreSilentSwitch:_ignoreSilentSwitch, mixWithOthers:_mixWithOthers)
-        applyModifiers()
+           RCTPlayerOperations.configureAudio(ignoreSilentSwitch:_ignoreSilentSwitch, mixWithOthers:_mixWithOthers,isLiveStream: self._isLiveStream)
+           applyModifiers()
+       
     }
     
     @objc
@@ -384,7 +423,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             _player?.pause()
             _player?.rate = 0.0
         } else {
-            RCTPlayerOperations.configureAudio(ignoreSilentSwitch:_ignoreSilentSwitch, mixWithOthers:_mixWithOthers)
+            RCTPlayerOperations.configureAudio(ignoreSilentSwitch:_ignoreSilentSwitch, mixWithOthers:_mixWithOthers,isLiveStream: self._isLiveStream)
             
             if #available(iOS 10.0, *), !_automaticallyWaitsToMinimizeStalling {
                 _player?.playImmediately(atRate: _rate)
@@ -409,6 +448,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     @objc
     func setSeek(_ info:NSDictionary!) {
+        print("=================  setSeek :: time ",info["time"] as! NSNumber)
+        print("=================  setSeek :: tolerance ",info["tolerance"] as! NSNumber)
+
         let seekTime:NSNumber! = info["time"] as! NSNumber
         let seekTolerance:NSNumber! = info["tolerance"] as! NSNumber
         let item:AVPlayerItem? = _player?.currentItem
@@ -418,24 +460,29 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             return
         }
         let wasPaused = _paused
-        
         RCTPlayerOperations.seek(
-            player:player,
-            playerItem:item,
-            paused:wasPaused,
-            seekTime:seekTime.floatValue,
-            seekTolerance:seekTolerance.floatValue)
-            .then{ [weak self] (finished:Bool) in
-                guard let self = self else { return }
-                
-                self._playerObserver.addTimeObserverIfNotSet()
-                if !wasPaused {
-                    self.setPaused(false)
-                }
-                self.onVideoSeek?(["currentTime": NSNumber(value: Float(CMTimeGetSeconds(item.currentTime()))),
-                                   "seekTime": seekTime,
-                                   "target": self.reactTag])
-            }.catch{_ in }
+                                player:player,
+                                playerItem:item,
+                                paused:wasPaused,
+                                seekTime:seekTime.floatValue,
+                                seekTolerance:seekTolerance.floatValue)
+                                .then{ [weak self] (finished:Bool) in
+                                    guard let self = self else { return }
+                                    
+                                    self._playerObserver.addTimeObserverIfNotSet()
+                                    if !wasPaused {
+                                        self.setPaused(false)
+                                    }
+                                    
+                                    print("=================  onVideoSeek :: currentTime ",NSNumber(value: Float(CMTimeGetSeconds(item.currentTime()))))
+                                    print("=================  onVideoSeek :: seekTime ",seekTime)
+                                    self.onVideoSeek?(["currentTime": NSNumber(value: Float(CMTimeGetSeconds(item.currentTime()))),
+                                                       "seekTime": seekTime,
+                                                       "target": self.reactTag])
+                                }.catch{
+                                    _ in
+         }
+                          
         
         _pendingSeek = false
     }
@@ -529,7 +576,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     func setSelectedAudioTrack(_ selectedAudioTrack:SelectedTrackCriteria?) {
         _selectedAudioTrackCriteria = selectedAudioTrack
-        RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player:_player, characteristic: AVMediaCharacteristic.audible,criteria:_selectedAudioTrackCriteria)
+       
+            RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player:_player, characteristic: AVMediaCharacteristic.audible,criteria:_selectedAudioTrackCriteria)
+      
     }
     
     @objc
@@ -542,8 +591,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         if (_textTracks != nil) { // sideloaded text tracks
             /*RCTPlayerOperations.setSideloadedText(player:_player, textTracks:_textTracks as? [AnyObject], criteria:_selectedTextTrackCriteria)*/
         } else { // text tracks included in the HLS playlist
-            RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player:_player, characteristic: AVMediaCharacteristic.legible,
-                                                                        criteria:_selectedTextTrackCriteria)
+            
+                RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player:_player, characteristic: AVMediaCharacteristic.legible,criteria:_selectedTextTrackCriteria)
+            
+        
         }
     }
     
@@ -848,13 +899,25 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         _resouceLoaderDelegate?.setLicenseResultError(error)
     }
     
+   func setIsLiveStream(_ isLiveStream:Bool!) {
+       print("=================  setIslivePeerEvent :: isLiveStream",isLiveStream)
+
+        _isLiveStream = isLiveStream
+
+    
+    }
+    
     // MARK: - RCTPlayerObserverHandler
     
     func handleTimeUpdate(time:CMTime) {
+        print("===================== handleTimeUpdate ==================== ")
+
         sendProgressUpdate()
     }
     
     func handleReadyForDisplay(changeObject: Any, change:NSKeyValueObservedChange<Bool>) {
+        print("===================== handleReadyForDisplay ==================== ")
+
         onReadyForDisplay?([
             "target": reactTag
         ])
@@ -927,10 +990,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             orientation = _playerItem.presentationSize.width > _playerItem.presentationSize.height ? "landscape" : "portrait"
         }
         
-        if _pendingSeek {
-            setCurrentTime(_pendingSeekTime)
-            _pendingSeek = false
-        }
         
         if _videoLoadStarted {
             onVideoLoad?(["duration": NSNumber(value: duration),
@@ -956,27 +1015,63 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
     
     func handlePlaybackFailed() {
-        guard let _playerItem = _playerItem else { return }
-        onVideoError?(
-            [
-                "error": [
-                    "code": NSNumber(value: (_playerItem.error! as NSError).code),
-                    "localizedDescription": _playerItem.error?.localizedDescription == nil ? "" : _playerItem.error?.localizedDescription,
-                    "localizedFailureReason": ((_playerItem.error! as NSError).localizedFailureReason == nil ? "" : (_playerItem.error! as NSError).localizedFailureReason) ?? "",
-                    "localizedRecoverySuggestion": ((_playerItem.error! as NSError).localizedRecoverySuggestion == nil ? "" : (_playerItem.error! as NSError).localizedRecoverySuggestion) ?? "",
-                    "domain": (_playerItem.error as! NSError).domain
-                ],
-                "target": reactTag
-            ])
+        guard let _playerItem = _playerItem else {
+            return
+            
+        }
+        
+        print("=================  handlePlaybackFailed :: code ",NSNumber(value: (_playerItem.error! as NSError).code))
+        print("=================  handlePlaybackFailed :: localizedDescription ", _playerItem.error?.localizedDescription == nil ? "" : _playerItem.error?.localizedDescription)
+        print("=================  handlePlaybackFailed :: localizedFailureReason ", ((_playerItem.error! as NSError).localizedFailureReason == nil ? "" : (_playerItem.error! as NSError).localizedFailureReason) ?? "")
+        print("=================  handlePlaybackFailed :: localizedRecoverySuggestion ",  ((_playerItem.error! as NSError).localizedRecoverySuggestion == nil ? "" : (_playerItem.error! as NSError).localizedRecoverySuggestion) ?? "")
+        print("=================  handlePlaybackFailed :: domain ",(_playerItem.error as! NSError).domain)
+
+        if(!_isLiveStream){
+            onVideoError?(
+                 [
+                     "error": [
+                         "code": NSNumber(value: (_playerItem.error! as NSError).code),
+                         "localizedDescription": _playerItem.error?.localizedDescription == nil ? "" : _playerItem.error?.localizedDescription,
+                         "localizedFailureReason": ((_playerItem.error! as NSError).localizedFailureReason == nil ? "" : (_playerItem.error! as NSError).localizedFailureReason) ?? "",
+                         "localizedRecoverySuggestion": ((_playerItem.error! as NSError).localizedRecoverySuggestion == nil ? "" : (_playerItem.error! as NSError).localizedRecoverySuggestion) ?? "",
+                         "domain": (_playerItem.error as! NSError).domain
+                     ],
+                     "target": reactTag
+                 ])
+        }
     }
     
+    
+    
+    func handlePlaybackIsPlaybackBufferFull(playerItem:AVPlayerItem, change:NSKeyValueObservedChange<Bool>) {
+        
+        print("===================== handlePlaybackIsPlaybackBufferFull observer ==================== ")
+        
+        guard let _player = _player else { return }
+        if(_player.rate == 0){
+            if(self._isLiveStream && _isSourdeDataSet && !_playerBufferEmpty){
+                print("===================== handlePlaybackIsPlaybackBufferFull starts Re Set ==================== rat =", _player.rate)
+                self.setSrc(self._sourcDictionary)
+            }
+        }
+
+    }
+    
+    
     func handlePlaybackBufferKeyEmpty(playerItem:AVPlayerItem, change:NSKeyValueObservedChange<Bool>) {
+        
+        print("===================== handlePlaybackBufferKeyEmpty observer ==================== ")
         _playerBufferEmpty = true
         onVideoBuffer?(["isBuffering": true, "target": reactTag as Any])
     }
     
+    
+    
     // Continue playing (or not if paused) after being paused due to hitting an unbuffered zone.
     func handlePlaybackLikelyToKeepUp(playerItem:AVPlayerItem, change:NSKeyValueObservedChange<Bool>) {
+        
+        print("===================== handlePlaybackLikelyToKeepUp observer ==================== ")
+
         if (!(_controls || _fullscreenPlayerPresented) || _playerBufferEmpty) && ((_playerItem?.isPlaybackLikelyToKeepUp) != nil) {
             setPaused(_paused)
         }
@@ -986,12 +1081,22 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     func handlePlaybackRateChange(player: AVPlayer, change: NSKeyValueObservedChange<Float>) {
         guard let _player = _player else { return }
+        print("===================== handlePlaybackRateChange observer ==================== rat =", _player.rate)
+
         onPlaybackRateChange?(["playbackRate": NSNumber(value: _player.rate),
                                "target": reactTag as Any])
         if _playbackStalled && _player.rate > 0 {
+            print("===================== playbackStalled after handlePlaybackRateChange observer ==================== rat =", _player.rate)
+
             onPlaybackResume?(["playbackRate": NSNumber(value: _player.rate),
                                "target": reactTag as Any])
             _playbackStalled = false
+        }
+        if(_player.rate == 0){
+            if(self._isLiveStream && _isSourdeDataSet){
+                print("===================== handlePlaybackRateChange starts Re Set ==================== rat =", _player.rate)
+               // self.setSrc(self._sourcDictionary)
+            }
         }
     }
     
@@ -1031,12 +1136,15 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     @objc func handlePlaybackStalled(notification:NSNotification!) {
         onPlaybackStalled?(["target": reactTag as Any])
+        print("===================== handlePlaybackStalled observer ==================== ")
+
         _playbackStalled = true
     }
     
     @objc func handlePlayerItemDidReachEnd(notification:NSNotification!) {
         onVideoEnd?(["target": reactTag as Any])
-        
+        print("===================== handlePlayerItemDidReachEnd observer ==================== ")
+
         if _repeat {
             let item:AVPlayerItem! = notification.object as? AVPlayerItem
             item.seek(to: CMTime.zero)
@@ -1047,15 +1155,164 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         }
     }
     
-    //unused
-    //    @objc func handleAVPlayerAccess(notification:NSNotification!) {
-    //        let accessLog:AVPlayerItemAccessLog! = (notification.object as! AVPlayerItem).accessLog()
-    //        let lastEvent:AVPlayerItemAccessLogEvent! = accessLog.events.last
-    //
-    //        /* TODO: get this working
-    //         if (self.onBandwidthUpdate) {
-    //         self.onBandwidthUpdate(@{@"bitrate": [NSNumber numberWithFloat:lastEvent.observedBitrate]});
-    //         }
-    //         */
-    //    }
+    
+    var playbackBufferEmptyObserver: NSKeyValueObservation?
+     var playbackBufferFullObserver: NSKeyValueObservation?
+     var playbackLikelyToKeepUpObserver: NSKeyValueObservation?
+    
+    @objc
+    func reInitializeIfNeeded(_ seekForward:NSNumber!) {
+        print("===================== reInitializeIfNeeded ==================== ")
+
+        guard let _player = _player else { return }
+        
+        playbackBufferFullObserver = self._playerItem?.observe(\.isPlaybackBufferFull, options: [.new, .initial], changeHandler: {[weak self] (player, bufferFull) in
+          if let self = self {
+              DispatchQueue.main.async {
+                  if bufferFull.newValue == true {
+                      print("============================================ start 2 ============ ","****** reset ******")
+                      if(self._isLiveStream && !self._dataSourceSet){
+                          //handle when player buffer is full (e.g. hide loading) start player
+                         // self.setSrc(self._sourcDictionary)
+
+                          if(_player.rate == 0.0){
+                            //  self.setSrc(self._sourcDictionary)
+                             // _player.seek(to: CMTime.zero )
+                              self.setPaused(false)
+                            //  _player.play()
+
+                          }
+                          return
+                      }
+                  }
+              }
+          }
+      })
+        
+        playbackBufferEmptyObserver = self._playerItem?.observe(\.isPlaybackBufferEmpty, options: [.new, .initial ], changeHandler: { [weak self] (player, bufferEmpty) in
+
+                     if let self = self {
+                         DispatchQueue.main.async {
+                             if bufferEmpty.newValue == true {
+                                 
+                                 if(self._isLiveStream && self._dataSourceSet){
+                                     
+                                     print("============================================ start BUFFER ============ ","")
+                                    if(_player.rate == 0.0){
+                                     print("============================================ start 1 ============ ","****** reset ******")
+                                     //  _player.seek(to: CMTime.zero )
+                                      self.setPaused(false)
+                                        applyModifiers()
+                                    }
+                                 }
+                                 // handle showing loading, player not playing
+                               //  self.setSrc(self._sourcDictionary)
+                               
+                             }
+                         }
+                     }
+                 })
+    
+       // let playbackLikelyToKeepUp = _player.currentItem?.isPlaybackLikelyToKeepUp
+       // let playbackBufferEmptyKeyPath = _player.currentItem?.isPlaybackBufferEmpty
+        //let playbackBufferFullKeyPath = _player.currentItem?.isPlaybackBufferFull
+
+
+      //  if(_player.rate == 0.0){
+          //  self.setSrc(self._sourcDictionary)
+          //  _player.seek(to: CMTime.zero )
+          //  self.setPaused(false)
+          //  _player.play()
+
+       // }
+        /* playbackBufferEmptyObserver = self._playerItem?.observe(\.isPlaybackBufferEmpty, options: [.new, .initial ], changeHandler: { [weak self] (player, bufferEmpty) in
+
+             if let self = self {
+                 DispatchQueue.main.async {
+                     if bufferEmpty.newValue == true {
+                         // handle showing loading, player not playing
+                         self.setSrc(self._sourcDictionary)
+                         print("============================================ start BUFFER ============ ","")
+                         if(_player.rate == 0.0){
+                             print("============================================ start 1 ============ ","****** reset ******")
+                             _player.seek(to: CMTime.zero )
+                             self.setPaused(false)
+                             _player.play()
+
+                         }
+                     }
+                 }
+             }
+         })
+
+           playbackBufferFullObserver = self._playerItem?.observe(\.isPlaybackBufferFull, options: [.new, .initial], changeHandler: {[weak self] (player, bufferFull) in
+             if let self = self {
+                 DispatchQueue.main.async {
+                     if bufferFull.newValue == true {
+                         print("============================================ start 2 ============ ","****** reset ******")
+                         if(self._isLiveStream && !self._dataSourceSet){
+                             //handle when player buffer is full (e.g. hide loading) start player
+                             self.setSrc(self._sourcDictionary)
+
+                             if(_player.rate == 0.0){
+                                 self.setSrc(self._sourcDictionary)
+                                 _player.seek(to: CMTime.zero )
+                                 self.setPaused(false)
+                                 _player.play()
+
+                             }
+                             return
+                         }
+                     }
+                 }
+             }
+         })
+
+        playbackLikelyToKeepUpObserver = self._playerItem?.observe(\.isPlaybackLikelyToKeepUp, options: [.new, .initial], changeHandler: { [weak self] (player, _) in
+             if let self = self {
+                 if ((self._playerItem?.status ?? AVPlayerItem.Status.unknown)! == .readyToPlay) {
+                     //  handle that player is  ready to play (e.g. hide loading indicator, start player)
+
+                     print("============================================ NOT BACK LIKELY TO KEEP UP ")
+                     if(self._isLiveStream && !self._dataSourceSet){
+                         //handle when player buffer is full (e.g. hide loading) start player
+                         self.setSrc(self._sourcDictionary)
+
+                         if(_player.rate == 0.0){
+                             self.setSrc(self._sourcDictionary)
+                             _player.seek(to: CMTime.zero )
+                             self.setPaused(false)
+                             _player.play()
+
+                         }
+                         return
+                     }
+                 } else {
+                     print("============================================ NTO READY 3")
+                     _player.seek(to: CMTime.zero )
+                     self.setPaused(false)
+                     _player.play()
+
+                 }
+             }
+         })*/
+    
+}
+    
+
+   
+    @objc func handleAVPlayerAccess(notification:NSNotification!) {
+            let accessLog:AVPlayerItemAccessLog! = (notification.object as! AVPlayerItem).accessLog()
+            let lastEvent:AVPlayerItemAccessLogEvent! = accessLog.events.last
+    
+            //TODO: get this working
+          // if (onBandwidthUpdate) {
+               print("=================  handleAVPlayerAccess ============",lastEvent.observedBitrate)
+             //  onBandwidthUpdate(@{@"bitrate"}: [NSNumber numberWithFloat:lastEvent.observedBitrate]);
+               
+           //  }
+            
+        }
+    
+ 
 }

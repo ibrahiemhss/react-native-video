@@ -1,5 +1,6 @@
 import AVFoundation
 import Promises
+import os.log
 
 /*!
  * Collection of pure functions

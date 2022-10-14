@@ -9,6 +9,7 @@ let RCTVideoUnset = -1
  */
 enum RCTPlayerOperations {
 
+  
     static func setSideloadedText(player:AVPlayer?, textTracks:[AnyObject]?, criteria:SelectedTrackCriteria?) {
         let type = criteria?.type
         let textTracks:[AnyObject]! = textTracks ?? RCTVideoUtils.getTextTrackInfo(player)
@@ -132,11 +133,16 @@ enum RCTPlayerOperations {
     }
 
     static func setMediaSelectionTrackForCharacteristic(player:AVPlayer?, characteristic:AVMediaCharacteristic, criteria:SelectedTrackCriteria?) {
+        print("=================  setMediaSelectionTrackForCharacteristic seek :: type ",criteria?.type)
+
+        
         let type = criteria?.type
         let group:AVMediaSelectionGroup! = player?.currentItem?.asset.mediaSelectionGroup(forMediaCharacteristic: characteristic)
         var mediaOption:AVMediaSelectionOption!
 
-        if (type == "disabled") {
+        if (type == nil) {
+            // Do nothing. We want to ensure option is nil
+        } else  if (type == "disabled") {
             // Do nothing. We want to ensure option is nil
         } else if (type == "language") || (type == "title") {
             let value = criteria?.value as? String
@@ -178,26 +184,35 @@ enum RCTPlayerOperations {
 
     }
 
-    static func seek(player: AVPlayer, playerItem:AVPlayerItem, paused:Bool, seekTime:Float, seekTolerance:Float) -> Promise<Bool> {
+    static func seek(player: AVPlayer, playerItem:AVPlayerItem, paused:Bool, seekTime:Float, seekTolerance:Float) ->
+    Promise<Bool> {
+        
         let timeScale:Int = 1000
         let cmSeekTime:CMTime = CMTimeMakeWithSeconds(Float64(seekTime), preferredTimescale: Int32(timeScale))
         let current:CMTime = playerItem.currentTime()
         let tolerance:CMTime = CMTimeMake(value: Int64(seekTolerance), timescale: Int32(timeScale))
+        print("=================  playerOperations seek :: seekTime",seekTime.description)
 
         return Promise<Bool>(on: .global()) { fulfill, reject in
-//            guard CMTimeCompare(current, cmSeekTime) != 0 else {
-//                reject(NSError())
-//                return
-//            }
+          //  guard CMTimeCompare(current, cmSeekTime) != 0 else {
+                //reject(NSError())
+           //    return
+           // }
             if !paused { player.pause() }
 
             player.seek(to: cmSeekTime, toleranceBefore:tolerance, toleranceAfter:tolerance, completionHandler:{ (finished:Bool) in
                 fulfill(finished)
+                print("=================  playerOperations seek :: finished",seekTime.description)
+
+                
             })
         }
     }
 
-    static func configureAudio(ignoreSilentSwitch:String, mixWithOthers:String) {
+    static func configureAudio(ignoreSilentSwitch:String, mixWithOthers:String,isLiveStream:Bool) {
+        
+        print("=================  playerOperations configureAudio :: ignoreSilentSwitch ",mixWithOthers)
+
         let session:AVAudioSession! = AVAudioSession.sharedInstance()
         var category:AVAudioSession.Category? = nil
         var options:AVAudioSession.CategoryOptions? = nil
@@ -218,16 +233,29 @@ enum RCTPlayerOperations {
             do {
                 try session.setCategory(category, options: options)
             } catch {
+                print("=================  playerOperations configureAudio :: setCategory error case 1","ERROR")
+
             }
         } else if let category = category, options == nil {
             do {
                 try session.setCategory(category)
             } catch {
+                print("=================  playerOperations configureAudio :: setCategory error case 2","ERROR")
+
             }
         } else if category == nil, let options = options {
             do {
                 try session.setCategory(session.category, options: options)
             } catch {
+                print("=================  playerOperations configureAudio :: setCategory error case 3","ERROR")
+
+            }
+        }else if category == nil && options == nil{
+            do {
+                try session.setCategory(session.category)
+            } catch {
+                print("=================  playerOperations configureAudio :: setCategory error case 4","ERROR")
+
             }
         }
     }

@@ -67,7 +67,6 @@ export default class Video extends Component {
       this.setNativeProps({ seek: time });
     }
   };
-
   presentFullscreenPlayer = () => {
     this.setNativeProps({ fullscreen: true });
   };
@@ -80,6 +79,22 @@ export default class Video extends Component {
     return await NativeModules.VideoManager.save(options, findNodeHandle(this._root));
   }
 
+    reInitializeIfNeeded = async () => {
+      if (Platform.OS === 'ios') {
+        return await NativeModules.VideoManager.reInitializeIfNeeded(Math.random() * 100, findNodeHandle(this._root));
+
+      }else{
+        this.setNativeProps({ forwardTime: Math.random() * 100 });
+      }
+   }
+   setIsLiveStream = async (v) => {
+     if (Platform.OS === 'ios') {
+       return await NativeModules.VideoManager.setIsLiveStream(v,findNodeHandle(this._root));
+
+     }else{
+       this.setNativeProps({ isLiveStream: v });
+     }
+ }
   restoreUserInterfaceForPictureInPictureStopCompleted = (restored) => {
     this.setNativeProps({ restoreUserInterfaceForPIPStopCompletionHandler: restored });
   };
@@ -95,6 +110,9 @@ export default class Video extends Component {
   }
 
   _onLoadStart = (event) => {
+    console.warn('onLoadStart Event', event.nativeEvent)
+    console.warn('onLoadStart props', this.props.onLoadStartt)
+
     if (this.props.onLoadStart) {
       this.props.onLoadStart(event.nativeEvent);
     }
@@ -260,6 +278,7 @@ export default class Video extends Component {
       }
     }
   }
+
   getViewManagerConfig = viewManagerName => {
     if (!UIManager.getViewManagerConfig) {
       return UIManager[viewManagerName];
@@ -380,6 +399,8 @@ Video.propTypes = {
     FilterType.SEPIA,
   ]),
   filterEnabled: PropTypes.bool,
+  isLiveStream: PropTypes.bool,
+  forwardTime: PropTypes.number,
   /* Native only */
   src: PropTypes.object,
   seek: PropTypes.oneOfType([

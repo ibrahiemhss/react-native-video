@@ -28,6 +28,7 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.ThemedReactContext;
+import com.facebook.react.uimanager.annotations.ReactProp;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.DefaultRenderersFactory;
@@ -193,6 +194,16 @@ class ReactExoplayerView extends FrameLayout implements
     private long lastPos = -1;
     private long lastBufferDuration = -1;
     private long lastDuration = -1;
+
+
+    public void setIsLiveStream( final boolean  isLiveStream) {
+        Log.d("propFunctions setIsLiveStream ", String.valueOf(isLiveStream));
+
+    }
+    public void reInitializeIfNeeded(final int forwardTime) {
+        Log.d("propFunctions reInitializeIfNeeded ", String.valueOf(forwardTime));
+
+    }
 
     private final Handler progressHandler = new Handler(Looper.getMainLooper()) {
         @Override

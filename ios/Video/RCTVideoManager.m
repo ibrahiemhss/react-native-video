@@ -26,6 +26,7 @@ RCT_EXPORT_VIEW_PROPERTY(ignoreSilentSwitch, NSString);
 RCT_EXPORT_VIEW_PROPERTY(mixWithOthers, NSString);
 RCT_EXPORT_VIEW_PROPERTY(rate, float);
 RCT_EXPORT_VIEW_PROPERTY(seek, NSDictionary);
+//RCT_EXPORT_VIEW_PROPERTY(reInitializeIfNeeded,NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(currentTime, float);
 RCT_EXPORT_VIEW_PROPERTY(fullscreen, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(fullscreenAutorotate, BOOL);
@@ -64,6 +65,13 @@ RCT_EXTERN_METHOD(save:(NSDictionary *)options
         reactTag:(nonnull NSNumber *)reactTag
         resolver:(RCTPromiseResolveBlock)resolve
         rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(reInitializeIfNeeded:(NSNumber *)seekForward
+                  reactTag:(nonnull NSNumber *)reactTag);
+
+RCT_EXTERN_METHOD(setIsLiveStream:(BOOL *)isLiveStream
+                  reactTag:(nonnull NSNumber *)reactTag);
+
 
 RCT_EXTERN_METHOD(setLicenseResult:(NSString *)license
          reactTag:(nonnull NSNumber *)reactTag)

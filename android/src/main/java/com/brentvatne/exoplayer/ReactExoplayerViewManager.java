@@ -1,5 +1,7 @@
 package com.brentvatne.exoplayer;
 
+import static com.facebook.react.views.text.ReactVirtualTextViewManager.REACT_CLASS;
+
 import android.content.Context;
 import android.net.Uri;
 import android.text.TextUtils;
@@ -78,6 +80,8 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String PROP_SELECTED_VIDEO_TRACK_VALUE = "value";
     private static final String PROP_HIDE_SHUTTER_VIEW = "hideShutterView";
     private static final String PROP_CONTROLS = "controls";
+    private static final String PROP_IS_LIVE_STREAM = "isLiveStream";
+    private static final String PROP_FORWARD_TIME = "forwardTime";
 
     private ReactExoplayerConfig config;
 
@@ -117,6 +121,20 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
                 "ScaleToFill", Integer.toString(ResizeMode.RESIZE_MODE_FILL),
                 "ScaleAspectFill", Integer.toString(ResizeMode.RESIZE_MODE_CENTER_CROP)
         );
+    }
+
+
+    @ReactMethod
+    public void reInitializeIfNeeded(int time,Object data) {
+
+        Log.e(REACT_CLASS, "=============== reInitializeIfNeeded:");
+
+    }
+    @ReactMethod
+    public void setIsLiveStream(boolean va,Object data) {
+
+        Log.e(REACT_CLASS, "=============== setIsLiveStream:"+va);
+
     }
 
     @ReactProp(name = PROP_DRM)
@@ -184,6 +202,15 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         }
     }
 
+
+    @ReactProp(name = PROP_IS_LIVE_STREAM)
+    public void setIsLiveStream(final ReactExoplayerView videoView, final  boolean isLiveStream) {
+        videoView.setIsLiveStream(isLiveStream);
+    }
+    @ReactProp(name = PROP_FORWARD_TIME)
+    public void reInitializeIfNeeded(final ReactExoplayerView videoView, final int forwardTime) {
+        videoView.reInitializeIfNeeded(forwardTime);
+    }
     @ReactProp(name = PROP_RESIZE_MODE)
     public void setResizeMode(final ReactExoplayerView videoView, final String resizeModeOrdinalString) {
         videoView.setResizeModeModifier(convertToIntDef(resizeModeOrdinalString));
