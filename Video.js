@@ -110,9 +110,6 @@ export default class Video extends Component {
   }
 
   _onLoadStart = (event) => {
-    console.warn('onLoadStart Event', event.nativeEvent)
-    console.warn('onLoadStart props', this.props.onLoadStartt)
-
     if (this.props.onLoadStart) {
       this.props.onLoadStart(event.nativeEvent);
     }

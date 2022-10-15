@@ -202,7 +202,12 @@ class ReactExoplayerView extends FrameLayout implements
     }
     public void reInitializeIfNeeded(final int forwardTime) {
         Log.d("propFunctions reInitializeIfNeeded ", String.valueOf(forwardTime));
-
+        if (player != null) {
+            if(!player.isPlaying()) {
+                releasePlayer();
+                initializePlayer();
+            };
+        }
     }
 
     private final Handler progressHandler = new Handler(Looper.getMainLooper()) {

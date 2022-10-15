@@ -1162,145 +1162,18 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     @objc
     func reInitializeIfNeeded(_ seekForward:NSNumber!) {
-        print("===================== reInitializeIfNeeded ==================== ")
-
+       
         guard let _player = _player else { return }
-        
-        playbackBufferFullObserver = self._playerItem?.observe(\.isPlaybackBufferFull, options: [.new, .initial], changeHandler: {[weak self] (player, bufferFull) in
-          if let self = self {
-              DispatchQueue.main.async {
-                  if bufferFull.newValue == true {
-                      print("============================================ start 2 ============ ","****** reset ******")
-                      if(self._isLiveStream && !self._dataSourceSet){
-                          //handle when player buffer is full (e.g. hide loading) start player
-                         // self.setSrc(self._sourcDictionary)
-
-                          if(_player.rate == 0.0){
-                            //  self.setSrc(self._sourcDictionary)
-                             // _player.seek(to: CMTime.zero )
-                              self.setPaused(false)
-                            //  _player.play()
-
-                          }
-                          return
-                      }
-                  }
-              }
-          }
-      })
-        
-        playbackBufferEmptyObserver = self._playerItem?.observe(\.isPlaybackBufferEmpty, options: [.new, .initial ], changeHandler: { [weak self] (player, bufferEmpty) in
-
-                     if let self = self {
-                         DispatchQueue.main.async {
-                             if bufferEmpty.newValue == true {
-                                 
-                                 if(self._isLiveStream && self._dataSourceSet){
-                                     
-                                     print("============================================ start BUFFER ============ ","")
-                                    if(_player.rate == 0.0){
-                                     print("============================================ start 1 ============ ","****** reset ******")
-                                     //  _player.seek(to: CMTime.zero )
-                                      self.setPaused(false)
-                                        applyModifiers()
-                                    }
-                                 }
-                                 // handle showing loading, player not playing
-                               //  self.setSrc(self._sourcDictionary)
-                               
-                             }
-                         }
-                     }
-                 })
-    
-       // let playbackLikelyToKeepUp = _player.currentItem?.isPlaybackLikelyToKeepUp
-       // let playbackBufferEmptyKeyPath = _player.currentItem?.isPlaybackBufferEmpty
-        //let playbackBufferFullKeyPath = _player.currentItem?.isPlaybackBufferFull
-
-
-      //  if(_player.rate == 0.0){
-          //  self.setSrc(self._sourcDictionary)
-          //  _player.seek(to: CMTime.zero )
-          //  self.setPaused(false)
-          //  _player.play()
-
-       // }
-        /* playbackBufferEmptyObserver = self._playerItem?.observe(\.isPlaybackBufferEmpty, options: [.new, .initial ], changeHandler: { [weak self] (player, bufferEmpty) in
-
-             if let self = self {
-                 DispatchQueue.main.async {
-                     if bufferEmpty.newValue == true {
-                         // handle showing loading, player not playing
-                         self.setSrc(self._sourcDictionary)
-                         print("============================================ start BUFFER ============ ","")
-                         if(_player.rate == 0.0){
-                             print("============================================ start 1 ============ ","****** reset ******")
-                             _player.seek(to: CMTime.zero )
-                             self.setPaused(false)
-                             _player.play()
-
-                         }
-                     }
-                 }
-             }
-         })
-
-           playbackBufferFullObserver = self._playerItem?.observe(\.isPlaybackBufferFull, options: [.new, .initial], changeHandler: {[weak self] (player, bufferFull) in
-             if let self = self {
-                 DispatchQueue.main.async {
-                     if bufferFull.newValue == true {
-                         print("============================================ start 2 ============ ","****** reset ******")
-                         if(self._isLiveStream && !self._dataSourceSet){
-                             //handle when player buffer is full (e.g. hide loading) start player
-                             self.setSrc(self._sourcDictionary)
-
-                             if(_player.rate == 0.0){
-                                 self.setSrc(self._sourcDictionary)
-                                 _player.seek(to: CMTime.zero )
-                                 self.setPaused(false)
-                                 _player.play()
-
-                             }
-                             return
-                         }
-                     }
-                 }
-             }
-         })
-
-        playbackLikelyToKeepUpObserver = self._playerItem?.observe(\.isPlaybackLikelyToKeepUp, options: [.new, .initial], changeHandler: { [weak self] (player, _) in
-             if let self = self {
-                 if ((self._playerItem?.status ?? AVPlayerItem.Status.unknown)! == .readyToPlay) {
-                     //  handle that player is  ready to play (e.g. hide loading indicator, start player)
-
-                     print("============================================ NOT BACK LIKELY TO KEEP UP ")
-                     if(self._isLiveStream && !self._dataSourceSet){
-                         //handle when player buffer is full (e.g. hide loading) start player
-                         self.setSrc(self._sourcDictionary)
-
-                         if(_player.rate == 0.0){
-                             self.setSrc(self._sourcDictionary)
-                             _player.seek(to: CMTime.zero )
-                             self.setPaused(false)
-                             _player.play()
-
-                         }
-                         return
-                     }
-                 } else {
-                     print("============================================ NTO READY 3")
-                     _player.seek(to: CMTime.zero )
-                     self.setPaused(false)
-                     _player.play()
-
-                 }
-             }
-         })*/
-    
+        print("===================== reInitializeIfNeeded ==================== ")
+        if(_playbackStalled == true){
+            print("===================== reInitializeIfNeeded in IF ==================== ")
+            _player.seek(to: CMTime.zero )
+            self.setPaused(false)
+            _player.play()
+            self.applyModifiers()
+        }
 }
-    
 
-   
     @objc func handleAVPlayerAccess(notification:NSNotification!) {
             let accessLog:AVPlayerItemAccessLog! = (notification.object as! AVPlayerItem).accessLog()
             let lastEvent:AVPlayerItemAccessLogEvent! = accessLog.events.last
@@ -1313,6 +1186,4 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
            //  }
             
         }
-    
- 
 }
