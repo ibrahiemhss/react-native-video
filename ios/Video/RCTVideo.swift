@@ -1165,7 +1165,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
        
         guard let _player = _player else { return }
         print("===================== reInitializeIfNeeded ==================== ")
-        if(_playbackStalled == true){
+        if(_playbackStalled == true ||  _playerBufferEmpty == true || _player.rate == 0.0){
             print("===================== reInitializeIfNeeded in IF ==================== ")
             _player.seek(to: CMTime.zero )
             self.setPaused(false)
