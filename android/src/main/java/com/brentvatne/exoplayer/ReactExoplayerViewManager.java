@@ -123,6 +123,20 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         );
     }
 
+
+    @ReactMethod
+    public void reInitializeIfNeeded(int time,Object data) {
+
+        Log.e(REACT_CLASS, "=============== reInitializeIfNeeded:");
+
+    }
+    @ReactMethod
+    public void setIsLiveStream(boolean va,Object data) {
+
+        Log.e(REACT_CLASS, "=============== setIsLiveStream:"+va);
+
+    }
+
     @ReactProp(name = PROP_DRM)
     public void setDRM(final ReactExoplayerView videoView, @Nullable ReadableMap drm) {
         if (drm != null && drm.hasKey(PROP_DRM_TYPE)) {

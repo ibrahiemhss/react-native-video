@@ -23,6 +23,19 @@ class RCTVideoManager: RCTViewManager {
             }
         })
     }
+ 
+   @objc(reInitializeIfNeeded:reactTag:)
+    func reInitializeIfNeeded( seekForward: NSNumber,reactTag: NSNumber) -> Void {
+
+        bridge.uiManager.prependUIBlock({_ , viewRegistry in
+            let view = viewRegistry?[reactTag]
+            if !(view is RCTVideo) {
+                RCTLogError("Invalid view returned from registry, expecting RCTVideo, got: %@", String(describing: view))
+            } else if let view = view as? RCTVideo {
+               view.reInitializeIfNeeded(seekForward)
+            }
+        })
+    }
     
     @objc(setLicenseResult:reactTag:)
     func setLicenseResult(license: NSString, reactTag: NSNumber) -> Void {
@@ -35,7 +48,8 @@ class RCTVideoManager: RCTViewManager {
             }
         })
     }
-    
+  
+
     @objc(setLicenseResultError:reactTag:)
     func setLicenseResultError(error: NSString, reactTag: NSNumber) -> Void {
         bridge.uiManager.prependUIBlock({_ , viewRegistry in
@@ -44,6 +58,18 @@ class RCTVideoManager: RCTViewManager {
                 RCTLogError("Invalid view returned from registry, expecting RCTVideo, got: %@", String(describing: view))
             } else if let view = view as? RCTVideo {
                 view.setLicenseResultError(error as String)
+            }
+        })
+    }
+    
+    @objc(setIsLiveStream:reactTag:)
+    func setIsLiveStream(isLiveStream: Bool, reactTag: NSNumber) -> Void {
+        bridge.uiManager.prependUIBlock({_ , viewRegistry in
+            let view = viewRegistry?[reactTag]
+            if !(view is RCTVideo) {
+                RCTLogError("Invalid view returned from registry, expecting RCTVideo, got: %@", String(describing: view))
+            } else if let view = view as? RCTVideo {
+                view.setIsLiveStream(isLiveStream as Bool)
             }
         })
     }

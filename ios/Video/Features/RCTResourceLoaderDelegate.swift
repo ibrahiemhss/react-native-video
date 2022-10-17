@@ -11,7 +11,8 @@ class RCTResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate, URLSes
     private var _reactTag: NSNumber?
     private var _onVideoError: RCTDirectEventBlock?
     private var _onGetLicense: RCTDirectEventBlock?
-    
+    private var _isLiveStream: Bool?
+
     
     init(
         asset: AVURLAsset,
@@ -19,7 +20,8 @@ class RCTResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate, URLSes
         localSourceEncryptionKeyScheme: String?,
         onVideoError: RCTDirectEventBlock?,
         onGetLicense: RCTDirectEventBlock?,
-        reactTag: NSNumber
+        reactTag: NSNumber,
+        isLiveStream:Bool
     ) {
         super.init()
         let queue = DispatchQueue(label: "assetQueue")
@@ -27,6 +29,7 @@ class RCTResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate, URLSes
         _reactTag = reactTag
         _onVideoError = onVideoError
         _onGetLicense = onGetLicense
+        _isLiveStream=isLiveStream
         _drm = drm
         _localSourceEncryptionKeyScheme = localSourceEncryptionKeyScheme
     }
@@ -67,7 +70,8 @@ class RCTResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate, URLSes
     func finishLoadingWithError(error:Error!) -> Bool {
         if let _loadingRequest = _loadingRequest, let error = error {
             _loadingRequest.finishLoading(with: error as! NSError)
-            
+            print("=================  finishLoadingWithError code :: ",NSNumber(value: (error as NSError).code))
+          
             _onVideoError?([
                 "error": [
                     "code": NSNumber(value: (error as NSError).code),
@@ -87,9 +91,13 @@ class RCTResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate, URLSes
         if handleEmbeddedKey(loadingRequest) {
             return true
         }
-        
-        if _drm != nil {
-            return handleDrm(loadingRequest)
+        if(!(_isLiveStream ?? false)){
+            if _drm != nil {
+                return handleDrm(loadingRequest)
+            }
+            return false
+        }else{
+            return true
         }
         
        return false
@@ -112,56 +120,59 @@ class RCTResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate, URLSes
         return true
     }
     
-    func handleDrm(_ loadingRequest:AVAssetResourceLoadingRequest!) -> Bool {
-        if _requestingCertificate {
-            return true
-        } else if _requestingCertificateErrored {
-            return false
-        }
-        _loadingRequest = loadingRequest
-        
-        guard let _drm = _drm, let drmType = _drm.type, drmType == "fairplay" else {
-            return finishLoadingWithError(error: RCTVideoErrorHandler.noDRMData)
-        }
-        
-        var promise: Promise<Data>
-        if _onGetLicense != nil {
-            let contentId = _drm.contentId ?? loadingRequest.request.url?.host
-            promise = RCTVideoDRM.handleWithOnGetLicense(
-                loadingRequest:loadingRequest,
-                contentId:contentId,
-                certificateUrl:_drm.certificateUrl,
-                base64Certificate:_drm.base64Certificate
-            ) .then{ spcData -> Void in
-                self._requestingCertificate = true
-                self._onGetLicense?(["licenseUrl": self._drm?.licenseServer ?? "",
-                                     "contentId": contentId,
-                                     "spcBase64": spcData.base64EncodedString(options: []),
-                                     "target": self._reactTag])
-            }
-        } else {
-            promise = RCTVideoDRM.handleInternalGetLicense(
-                loadingRequest:loadingRequest,
-                contentId:_drm.contentId,
-                licenseServer:_drm.licenseServer,
-                certificateUrl:_drm.certificateUrl,
-                base64Certificate:_drm.base64Certificate,
-                headers:_drm.headers
-            ) .then{ data -> Void in
-                    guard let dataRequest = loadingRequest.dataRequest else {
-                        throw RCTVideoErrorHandler.noCertificateData
-                    }
-                    dataRequest.respond(with:data)
-                    loadingRequest.finishLoading()
-                }
-        }
-        
-        
-        promise.catch{ error in
-            self.finishLoadingWithError(error:error)
-            self._requestingCertificateErrored = true
-        }
-        
-        return true
-    }
+  
+    
+ func handleDrm(_ loadingRequest:AVAssetResourceLoadingRequest!) -> Bool {
+          if _requestingCertificate {
+              return true
+          } else if _requestingCertificateErrored {
+              return false
+          }
+          _loadingRequest = loadingRequest
+          
+          guard let _drm = _drm, let drmType = _drm.type, drmType == "fairplay" else {
+              return finishLoadingWithError(error: RCTVideoErrorHandler.noDRMData)
+          }
+          
+          var promise: Promise<Data>
+          if _onGetLicense != nil {
+              let contentId = _drm.contentId ?? loadingRequest.request.url?.host
+              promise = RCTVideoDRM.handleWithOnGetLicense(
+                  loadingRequest:loadingRequest,
+                  contentId:contentId,
+                  certificateUrl:_drm.certificateUrl,
+                  base64Certificate:_drm.base64Certificate
+              ) .then{ spcData -> Void in
+                  self._requestingCertificate = true
+                  self._onGetLicense?(["licenseUrl": self._drm?.licenseServer ?? "",
+                                       "contentId": contentId,
+                                       "spcBase64": spcData.base64EncodedString(options: []),
+                                       "target": self._reactTag])
+              }
+          } else {
+              promise = RCTVideoDRM.handleInternalGetLicense(
+                  loadingRequest:loadingRequest,
+                  contentId:_drm.contentId,
+                  licenseServer:_drm.licenseServer,
+                  certificateUrl:_drm.certificateUrl,
+                  base64Certificate:_drm.base64Certificate,
+                  headers:_drm.headers
+              ) .then{ data -> Void in
+                      guard let dataRequest = loadingRequest.dataRequest else {
+                          throw RCTVideoErrorHandler.noCertificateData
+                      }
+                      dataRequest.respond(with:data)
+                      loadingRequest.finishLoading()
+                  }
+          }
+          
+          
+          promise.catch{ error in
+              self.finishLoadingWithError(error:error)
+              self._requestingCertificateErrored = true
+          }
+          
+          return true
+      }
+
 }
