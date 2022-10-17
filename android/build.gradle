@@ -30,6 +30,7 @@ android {
 repositories {
     // Remove this repository line after google releases to google() or mavenCentral()
     maven { url "https://dl.google.com/android/maven2" }
+    maven { url "https://jitpack.io" }
 }
 
 dependencies {
@@ -37,6 +38,8 @@ dependencies {
     implementation('com.google.android.exoplayer:exoplayer:2.18.1') {
         exclude group: 'com.android.support'
     }
+    implementation "androidx.annotation:annotation:1.4.0"
+
 //    implementation 'com.google.android.exoplayer:exoplayer-common:2.18.1'
     // All support libs must use the same version
     implementation "androidx.annotation:annotation:1.4.0"

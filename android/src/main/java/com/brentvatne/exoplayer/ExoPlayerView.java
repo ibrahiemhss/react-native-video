@@ -4,7 +4,6 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import androidx.core.content.ContextCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.SurfaceView;
 import android.view.TextureView;
@@ -94,22 +93,15 @@ public final class ExoPlayerView extends FrameLayout {
     }
 
     private void setVideoView() {
-        Log.d(Consts.TAG, "EXOPLYER VIEW setVideoView start");
-
         if (surfaceView instanceof TextureView) {
             player.setVideoTextureView((TextureView) surfaceView);
         } else if (surfaceView instanceof SurfaceView) {
             player.setVideoSurfaceView((SurfaceView) surfaceView);
         }
-        Log.d(Consts.TAG, "EXOPLYER VIEW setVideoView finished");
-
     }
 
     private void updateSurfaceView() {
         View view;
-
-        Log.d(Consts.TAG, "EXOPLYER VIEW updateSurfaceView start");
-
         if (!useTextureView || useSecureView) {
             view = new SurfaceView(context);
             if (useSecureView) {
@@ -129,8 +121,6 @@ public final class ExoPlayerView extends FrameLayout {
         if (this.player != null) {
             setVideoView();
         }
-        Log.d(Consts.TAG, "EXOPLYER VIEW updateSurfaceView finished");
-
     }
 
     private void updateShutterViewVisibility() {
@@ -145,8 +135,6 @@ public final class ExoPlayerView extends FrameLayout {
      * @param player The {@link ExoPlayer} to use.
      */
     public void setPlayer(ExoPlayer player) {
-        Log.d(Consts.TAG, "EXOPLYER VIEW setPlayer start");
-
         if (this.player == player) {
             return;
         }
@@ -160,8 +148,6 @@ public final class ExoPlayerView extends FrameLayout {
             setVideoView();
             player.addListener(componentListener);
         }
-        Log.d(Consts.TAG, "EXOPLYER VIEW setPlayer finished");
-
     }
 
     /**
@@ -189,12 +175,8 @@ public final class ExoPlayerView extends FrameLayout {
 
     public void setUseTextureView(boolean useTextureView) {
         if (useTextureView != this.useTextureView) {
-            Log.d(Consts.TAG, "EXOPLYER VIEW setUseTextureView start");
-
             this.useTextureView = useTextureView;
             updateSurfaceView();
-            Log.d(Consts.TAG, "EXOPLYER VIEW setUseTextureView fifnshed");
-
         }
     }
 
@@ -280,65 +262,52 @@ public final class ExoPlayerView extends FrameLayout {
 
         @Override
         public void onIsLoadingChanged(boolean isLoading) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onIsLoadingChanged");
-
+            // Do nothing.
         }
 
         @Override
         public void onPlaybackStateChanged(int playbackState) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onPlaybackStateChanged");
-
+            // Do nothing.
         }
 
         @Override
         public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onPlayWhenReadyChanged");
-
+            // Do nothing.
         }
 
         @Override
         public void onPlayerError(PlaybackException e) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== Exception onPlayerError"+e.toString());
-
+            // Do nothing.
         }
 
         @Override
         public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onPositionDiscontinuity");
-
             // Do nothing.
         }
 
         @Override
         public void onTimelineChanged(Timeline timeline, int reason) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onTimelineChanged");
-
             // Do nothing.
         }
 
         @Override
         public void onTracksChanged(Tracks tracks) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onTracksChanged");
-
             updateForCurrentTrackSelections(tracks);
         }
 
         @Override
         public void onPlaybackParametersChanged(PlaybackParameters params) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onPlaybackParametersChanged");
-
+            // Do nothing
         }
 
         @Override
         public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onShuffleModeEnabledChanged");
-
+            // Do nothing.
         }
 
         @Override
         public void onRepeatModeChanged(int repeatMode) {
-            Log.w(Consts.TAG, "EXOPLYER VIEW ===== onRepeatModeChanged");
-
+            // Do nothing.
         }
     }
 
